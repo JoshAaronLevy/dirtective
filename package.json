@@ -1,0 +1,29 @@
+{
+  "name": "dirtective",
+  "version": "1.0.0",
+  "description": "Compare two directories and find out what's different",
+  "main": "./bin/index.mjs",
+  "scripts": {
+    "start": "node ./bin/index.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "preferGlobal": true,
+  "bin": {
+    "dirtective": "./bin/index.mjs"
+  },
+  "keywords": [],
+  "author": "Josh Levy",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^2.4.2",
+    "colorette": "^2.0.19",
+    "commander": "^3.0.2",
+    "enquirer": "^2.3.6",
+    "inquirer": "^9.1.5",
+    "inquirer-file-tree-selection-prompt": "^2.0.5",
+    "lodash": "^4.17.21",
+    "nanospinner": "^1.1.0",
+    "ora": "^4.0.2",
+    "shelljs": "^0.8.5"
+  }
+}
