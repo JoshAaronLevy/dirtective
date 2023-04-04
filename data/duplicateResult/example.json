@@ -1,0 +1,84 @@
+{
+  "duplicates": [
+    {
+      "test1": [
+        {
+          "name": "test1",
+          "base": "test1.md",
+          "path": "/Users/joshlevy/Desktop/dir1/test1.md",
+          "type": ".md",
+          "createdDate": "04/04/2023 03:17pm",
+          "size": "0.00 KB"
+        },
+        {
+          "name": "test1",
+          "base": "test1.md",
+          "path": "/Users/joshlevy/Desktop/dir2/test1.md",
+          "type": ".md",
+          "createdDate": "04/04/2023 03:18pm",
+          "size": "0.00 KB"
+        }
+      ]
+    },
+    {
+      "test2": [
+        {
+          "name": "test2",
+          "base": "test2.md",
+          "path": "/Users/joshlevy/Desktop/dir1/test2.md",
+          "type": ".md",
+          "createdDate": "04/04/2023 03:17pm",
+          "size": "0.00 KB"
+        },
+        {
+          "name": "test2",
+          "base": "test2.md",
+          "path": "/Users/joshlevy/Desktop/dir2/test2.md",
+          "type": ".md",
+          "createdDate": "04/04/2023 03:18pm",
+          "size": "0.00 KB"
+        }
+      ]
+    },
+    {
+      "test6": [
+        {
+          "name": "test6",
+          "base": "test6.md",
+          "path": "/Users/joshlevy/Desktop/dir1/test6.md",
+          "type": ".md",
+          "createdDate": "04/04/2023 03:17pm",
+          "size": "0.00 KB"
+        },
+        {
+          "name": "test6",
+          "base": "test6.md",
+          "path": "/Users/joshlevy/Desktop/dir2/test6.md",
+          "type": ".md",
+          "createdDate": "04/04/2023 03:18pm",
+          "size": "0.00 KB"
+        }
+      ]
+    },
+    {
+      "test8": [
+        {
+          "name": "test8",
+          "base": "test8.md",
+          "path": "/Users/joshlevy/Desktop/dir1/test8.md",
+          "type": ".md",
+          "createdDate": "04/04/2023 03:17pm",
+          "size": "0.00 KB"
+        },
+        {
+          "name": "test8",
+          "base": "test8.md",
+          "path": "/Users/joshlevy/Desktop/dir2/test8.md",
+          "type": ".md",
+          "createdDate": "04/04/2023 03:18pm",
+          "size": "0.00 KB"
+        }
+      ]
+    }
+  ]
+}
