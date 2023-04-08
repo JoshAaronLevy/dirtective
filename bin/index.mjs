@@ -7,8 +7,6 @@ program
   .description("Example: dirtective \"./\"")
   .version("1.0.0", "-v, --version")
   .action(async (message, command) => {
-    console.log("message: ", message);
-    console.log("command: ", command);
     if (message.branch === true || message.b === true) {
       command = message;
       await prompts(command);
