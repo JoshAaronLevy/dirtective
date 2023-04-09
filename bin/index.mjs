@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from 'commander';
+import { Command } from "commander";
 const program = new Command();
 import prompts from "../lib/prompts.mjs";
 
