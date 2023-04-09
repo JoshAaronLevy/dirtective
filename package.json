@@ -24,6 +24,7 @@
     "inquirer": "^9.1.5",
     "inquirer-file-tree-selection-prompt": "^2.0.5",
     "lodash": "^4.17.21",
+    "mkdirp": "^2.1.6",
     "moment": "^2.29.4",
     "nanospinner": "^1.1.0",
     "ora": "^4.0.2",
