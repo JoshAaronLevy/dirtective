@@ -18,6 +18,7 @@
     "cli-table3": "^0.6.3",
     "colorette": "^2.0.19",
     "commander": "^3.0.2",
+    "fuse.js": "^6.6.2",
     "inquirer": "^9.1.5",
     "inquirer-file-tree-selection-prompt": "^2.0.5",
     "moment": "^2.29.4",
