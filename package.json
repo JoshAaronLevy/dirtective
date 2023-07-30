@@ -15,14 +15,17 @@
   "author": "Josh Levy",
   "license": "ISC",
   "dependencies": {
+    "cli-progress": "^3.12.0",
     "cli-table3": "^0.6.3",
     "colorette": "^2.0.19",
     "commander": "^3.0.2",
+    "fluent-ffmpeg": "^2.1.2",
     "fuse.js": "^6.6.2",
     "inquirer": "^9.1.5",
     "inquirer-file-tree-selection-prompt": "^2.0.5",
     "moment": "^2.29.4",
     "nanospinner": "^1.1.0",
+    "ora": "^6.3.1",
     "papaparse": "^5.4.1",
     "shelljs": "^0.8.5"
   },

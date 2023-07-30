@@ -3,3 +3,4 @@ node_modules
 lib/.DS_Store
 bin/.DS_Store
 data/.DS_Store
+lib/models/tags.mjs
