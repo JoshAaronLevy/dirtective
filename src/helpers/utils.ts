@@ -1,11 +1,11 @@
 import path from "path";
-import { promises as fs } from "fs";
+import { promises as fs, PathLike } from "fs";
 import moment from "moment";
 import Papa from "papaparse";
-import { getFileType } from "./fileTypes.mjs";
-import { constants } from "../models/args.mjs";
+import { getFileType } from "./fileTypes";
+import { constants } from "./constants";
 
-const isSystemFile = (filename) => {
+const isSystemFile = (filename: string) => {
   const ext = path.extname(filename);
   const base = path.basename(filename);
 
@@ -20,7 +20,7 @@ const isSystemFile = (filename) => {
   return false;
 };
 
-export const walk = async (dir, fileList = []) => {
+export const walk = async (dir: string, fileList: any = []) => {
   const files = await fs.readdir(dir);
 
   for (const file of files) {
@@ -43,14 +43,14 @@ export const walk = async (dir, fileList = []) => {
   return fileList;
 };
 
-const convertFile = async (file) => {
+const convertFile = async (file: any) => {
   try {
-    let newFile = {};
+    let newFile: any = {};
     const filePath = file;
 
     const fileStats = await fs.stat(filePath);
     const fileSize = fileStats.size;
-    const friendlySize = bytesToSize(fileSize);
+    const friendlySize: any = bytesToSize(fileSize);
 
     const rawCreatedDate = fileStats.birthtime;
     const friendlyDate = moment(rawCreatedDate).format("MM/DD/YYYY hh:mma");
@@ -78,12 +78,12 @@ const convertFile = async (file) => {
   }
 };
 
-export const findDuplicates = async (initialDir, comparisonDir) => {
+export const findDuplicates = async (initialDir: string, comparisonDir: string) => {
   const initialFiles = await walk(initialDir);
   const comparisonFiles = await walk(comparisonDir);
 
-  const initialFilenames = initialFiles.map(file => path.basename(file));
-  const duplicateFilesMap = {};
+  const initialFilenames = initialFiles.map((file: string) => path.basename(file));
+  const duplicateFilesMap: any = {};
 
   for (const file of comparisonFiles) {
     const filename = path.basename(file);
@@ -97,8 +97,8 @@ export const findDuplicates = async (initialDir, comparisonDir) => {
     }
   }
 
-  const duplicateFiles = Object.values(duplicateFilesMap).map(async matches => {
-    const convertedMatches = matches.map(async match => await convertFile(match));
+  const duplicateFiles = Object.values(duplicateFilesMap).map(async (matches: any) => {
+    const convertedMatches = matches.map(async (match: any) => await convertFile(match));
     const matchList = await Promise.all(convertedMatches).then(matches => matches);
     return ({ fileMatches: matchList });
   });
@@ -106,7 +106,7 @@ export const findDuplicates = async (initialDir, comparisonDir) => {
   return await Promise.all(duplicateFiles).then(matches => matches);
 };
 
-export const bytesToSize = (bytes) => {
+export const bytesToSize = (bytes: number) => {
   if (isNaN(bytes) || bytes < 0) {
     return "Invalid input";
   }
@@ -127,7 +127,7 @@ export const bytesToSize = (bytes) => {
   }
 };
 
-export const sizeToBytes = async (size, unit) => {
+export const sizeToBytes = async (size: number, unit: string) => {
   if (isNaN(size) || size < 0 || !["KB", "MB"].includes(unit.toUpperCase())) {
     return "Invalid input";
   }
@@ -142,13 +142,13 @@ export const sizeToBytes = async (size, unit) => {
   }
 };
 
-export const transformDupe = async (file) => {
+export const transformDupe = async (file: { path: any; base: string; name: any; createdDate: string; date: { raw: Date; formatted: string; }; size: { bytes: number; calculated: string; }; type: any; }) => {
   try {
     const filePath = `${file.path}${path.sep}${file.base}`;
 
     const fileStats = await fs.stat(filePath);
     const fileSize = fileStats.size;
-    const friendlySize = bytesToSize(fileSize);
+    const friendlySize: any = bytesToSize(fileSize);
 
     const rawCreatedDate = fileStats.birthtime;
     const friendlyDate = moment(rawCreatedDate).format("MM/DD/YYYY hh:mma");
@@ -174,9 +174,9 @@ export const transformDupe = async (file) => {
   }
 };
 
-export const convertDuplicates = async (duplicateFiles) => {
+export const convertDuplicates = async (duplicateFiles: any) => {
   try {
-    let convertedDupes = [];
+    let convertedDupes: any = [];
     for (const file of duplicateFiles) {
       convertedDupes.push(await transformDupe(file));
     }
@@ -186,17 +186,17 @@ export const convertDuplicates = async (duplicateFiles) => {
   }
 };
 
-export const findDivergentDirectories = (paths) => {
-  const divergentDirs = [];
+export const findDivergentDirectories = (paths: any) => {
+  const divergentDirs: any = [];
 
-  function splitPath(path) {
-    return path.split("/").filter(dir => dir);
+  function splitPath(path: string) {
+    return path.split("/").filter((dir: any) => dir);
   }
 
-  const pathArrays = paths.map(splitPath);
+  const pathArrays: any = paths.map(splitPath);
 
   let divergentIndex = -1;
-  for (let i = 0; i < Math.min(...pathArrays.map(arr => arr.length)); i++) {
+  for (let i = 0; i < Math.min(...pathArrays.map((arr: any) => arr.length)); i++) {
     if (pathArrays[0][i] !== pathArrays[1][i]) {
       divergentIndex = i;
       break;
@@ -215,7 +215,7 @@ export const findDivergentDirectories = (paths) => {
   return divergentDirs;
 };
 
-function sanitizeFileName(fileName) {
+function sanitizeFileName(fileName: any) {
   const invalidChars = ["/", "\\"];
   let sanitizedFileName = fileName;
 
@@ -226,8 +226,8 @@ function sanitizeFileName(fileName) {
   return sanitizedFileName;
 }
 
-export const createMergeDirectory = async (targetPath) => {
-  const mergeDir = `${targetPath}${path.sep}${constants.MERGE_DIRECTORY}`;
+export const createMergeDirectory = async (targetPath: any) => {
+  const mergeDir = `${targetPath}${path.sep}`;
   try {
     await fs.mkdir(mergeDir);
     return mergeDir;
@@ -236,7 +236,7 @@ export const createMergeDirectory = async (targetPath) => {
   }
 };
 
-export const createSummaryFile = async (targetPath, fileName, fileType, duplicateQueue) => {
+export const createSummaryFile = async (targetPath: any, fileName: any, fileType: string, duplicateQueue: any[]) => {
   const sanitizedFileName = sanitizeFileName(fileName);
   const targetFile = `${targetPath}${path.sep}${sanitizedFileName}.${fileType}`;
   if (fileType === "json") {
@@ -248,9 +248,9 @@ export const createSummaryFile = async (targetPath, fileName, fileType, duplicat
   return targetFile;
 };
 
-export const createPackageJsonFile = async (newFilePath, duplicateQueue) => {
+export const createPackageJsonFile = async (newFilePath: PathLike | fs.FileHandle, duplicateQueue: any) => {
   try {
-    const jsonData = await generateJsonFileData(duplicateQueue);
+    const jsonData: any = await generateJsonFileData(duplicateQueue);
     await fs.writeFile(newFilePath, jsonData, "utf8");
     console.log(`File written successfully in: ${newFilePath}`);
   } catch (error) {
@@ -258,10 +258,10 @@ export const createPackageJsonFile = async (newFilePath, duplicateQueue) => {
   }
 };
 
-export const generateJsonFileData = async (duplicateQueue) => {
+export const generateJsonFileData = async (duplicateQueue: any[]) => {
   try {
     if (duplicateQueue.length > 0) {
-      const mappedDupeQueuePromises = duplicateQueue.map(async (dupe) => {
+      const mappedDupeQueuePromises = duplicateQueue.map(async (dupe: { fileMatches: any; }) => {
         const modifiedDupe = await convertDuplicates(dupe.fileMatches);
         return modifiedDupe;
       });
@@ -276,9 +276,9 @@ export const generateJsonFileData = async (duplicateQueue) => {
   }
 };
 
-export const writeToCSV = async (fileName, duplicateQueue) => {
+export const writeToCSV = async (fileName: PathLike | fs.FileHandle, duplicateQueue: any[]) => {
   try {
-    const fileData = duplicateQueue.map(async (duplicate, index) => {
+    const fileData = duplicateQueue.map(async (duplicate: { fileMatches: string | any[]; }, index: number) => {
       let file1 = await duplicate.fileMatches[0];
       let file2 = await duplicate.fileMatches[1];
       if (duplicate.fileMatches.length === 2) {
@@ -361,7 +361,7 @@ export const writeToCSV = async (fileName, duplicateQueue) => {
       }
     });
 
-    const csvData = await Promise.all(fileData)
+    const csvData: any = await Promise.all(fileData)
       .then((data) => {
         return data;
       }).catch((error) => {

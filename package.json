@@ -1,15 +1,17 @@
 {
   "name": "dirtective",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Compare two directories and find out what's different",
-  "main": "./bin/index.mjs",
+  "main": "./dist/bin/index.js",
   "scripts": {
-    "start": "node ./bin/index.mjs",
+    "start": "node ./dist/bin/index.js",
+    "build": "npx tsc",
+    "relink": "npm uninstall -g dirtective && npm i && rm -rf dist && npx tsc && npm link",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "preferGlobal": true,
   "bin": {
-    "dirtective": "./bin/index.mjs"
+    "dirtective": "./dist/bin/index.js"
   },
   "keywords": [],
   "author": "Josh Levy",
@@ -22,10 +24,15 @@
     "inquirer-file-tree-selection-prompt": "^2.0.5",
     "moment": "^2.29.4",
     "nanospinner": "^1.1.0",
-    "papaparse": "^5.4.1",
-    "shelljs": "^0.8.5"
+    "papaparse": "^5.5.2",
+    "shelljs": "^0.8.5",
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
+    "@types/inquirer": "^9.0.8",
+    "@types/node": "^22.15.18",
+    "@types/papaparse": "^5.3.16",
+    "@types/shelljs": "^0.8.16",
     "eslint": "^8.38.0"
   }
 }

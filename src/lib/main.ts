@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable indent */
 import path from "path";
-import { promises as fs } from "fs";
+import { promises as fs, PathLike } from "fs";
 const directory = process.cwd();
 import shell from "shelljs";
 import { createSpinner } from "nanospinner";
@@ -10,33 +10,36 @@ import Table from "cli-table3";
 // import moment from "moment";
 import inquirer from "inquirer";
 import inquirerFileTreeSelection from "inquirer-file-tree-selection-prompt";
-import { constants } from "./models/args.mjs";
-import { bytesToSize, convertDuplicates, createSummaryFile, findDivergentDirectories, findDuplicates } from "./helpers/utils.mjs";
+import { constants } from "../helpers/constants";
+import { bytesToSize, convertDuplicates, findDuplicates } from "../helpers/utils";
+import { chooseAllDupeAction, chooseFileAction, postDupeAction, selectDirectory } from "./prompts";
+import { Duplicate, FileInfo, Summary } from "../helpers/models";
 
 inquirer.registerPrompt("file-tree-selection", inquirerFileTreeSelection);
 
-let rootPath;
-let cwdPath;
-let duplicateQueue = [];
+let rootPath: string;
 let uniqueQueue = [];
-let currentSelectedNumber = 1;
-let totalDuplicateFiles = 0;
-let summary = {
+
+let duplicateQueue: Duplicate[] = []; // Initialize or populate elsewhere
+const summary: Summary = {
   total: duplicateQueue.length,
   success: 0,
   failed: 0,
-  actions: []
+  actions: [],
 };
 
-export default async (command) => {
+export default async (command: any): Promise<void> => {
   if (command && command.args.length > 0) {
     console.log("command args:\n", command.args);
   }
   try {
     rootPath = await getRootPath();
-    cwdPath = await getCwdPath();
+    await getCwdPath();
     if (rootPath) {
-      return selectDirectory("primaryDirectory");
+      const selectedDir: any = await selectDirectory("primaryDirectory");
+      if (selectedDir) {
+        await setDirectory("primaryDirectory", selectedDir);
+      }
     }
   } catch (error) {
     console.log(error);
@@ -73,57 +76,38 @@ const getCwdPath = async () => {
   }
 };
 
-const selectDirectory = (targetDirectory) => {
-  const dirName = targetDirectory === "primaryDirectory" ? "Primary Directory" : "Secondary Directory";
-  inquirer
-    .prompt([
-      {
-        type: "file-tree-selection",
-        onlyShowDir: true,
-        enableGoUpperDirectory: true,
-        root: rootPath,
-        name: dirName
-      }
-    ])
-    .then(async answer => {
-      if (answer[dirName]) {
-        return setDirectory(targetDirectory, answer[dirName]);
-      } else {
-        return;
-      }
-    }).catch(error => {
-      console.log(error);
-    });
-};
-
-const setDirectory = async (targetDirectory, answer) => {
+const setDirectory = async (
+  targetDirectory: 'primaryDirectory' | 'secondaryDirectory',
+  answer: string
+): Promise<void> => {
   try {
-    const targetDir = constants[targetDirectory];
+    const targetDir: any = constants[targetDirectory];
     targetDir.path = answer;
     targetDir.name = path.basename(answer);
     targetDir.files = await getFileList(targetDir);
     targetDir.fileCount = targetDir.files.length;
 
-    const friendlySize = bytesToSize(targetDir.size.bytes);
+    const friendlySize: any = bytesToSize(targetDir.size.bytes);
     targetDir.size.calculated = `${friendlySize.size} ${friendlySize.unit}`;
 
-    if (targetDirectory === "primaryDirectory") {
-      return selectDirectory("secondaryDirectory");
-    } else if (targetDirectory === "secondaryDirectory") {
+    if (targetDirectory === 'primaryDirectory') {
+      return selectDirectory('secondaryDirectory');
+    } else if (targetDirectory === 'secondaryDirectory') {
       if (constants.primaryDirectory.path === constants.secondaryDirectory.path) {
         console.log(red(`You cannot compare the same directory. Please select a different directory than ${answer}.\n`));
-        return selectDirectory("secondaryDirectory");
+        return selectDirectory('secondaryDirectory');
       }
       return findDupes();
     } else {
-      return constants;
+      return constants[targetDirectory];
     }
   } catch (error) {
-    console.log(error);
+    console.error('Error setting directory:', error instanceof Error ? error.message : error);
+    throw error;
   }
 };
 
-const getFileList = async (selectedDir) => {
+const getFileList = async (selectedDir: { path: PathLike; size: { bytes: number; }; files: string | any[]; }) => {
   const spinner = createSpinner("Reticulating splines...").start();
   try {
     const asyncFileList = await fs.readdir(selectedDir.path);
@@ -170,25 +154,25 @@ const getFileList = async (selectedDir) => {
 };
 
 const identifyUniqueFiles = async () => {
-  const arr1 = constants.primaryDirectory.files;
-  const arr2 = constants.secondaryDirectory.files;
+  const primaryDirFiles: any = constants.primaryDirectory.files;
+  const secondaryDirFiles = constants.secondaryDirectory.files;
 
-  let uniqueFiles = [];
+  let uniqueFiles: any = [];
 
-  function fileExists(array, name) {
-    return array.some(file => file.name === name);
+  function fileExists(array: any[], name: any) {
+    return array.some((file: any) => file.name === name);
   }
 
-  arr1.forEach(file => {
-    if (!fileExists(arr2, file.name)) {
+  primaryDirFiles.forEach((file: any) => {
+    if (!fileExists(secondaryDirFiles, file.name)) {
       if (file.base.includes(".")) {
         uniqueFiles.push(file);
       }
     }
   });
 
-  arr2.forEach(file => {
-    if (!fileExists(arr1, file.name)) {
+  secondaryDirFiles.forEach((file: any) => {
+    if (!fileExists(primaryDirFiles, file.name)) {
       if (file.base.includes(".")) {
         uniqueFiles.push(file);
       }
@@ -202,23 +186,21 @@ const identifyUniqueFiles = async () => {
 
 const findDupes = async () => {
   const spinner = createSpinner("Looking for duplicates...\n").start();
-  const primaryPath = constants.primaryDirectory.path;
-  const secondaryPath = constants.secondaryDirectory.path;
-  // let totalDuplicateCount = 0;
+  const primaryPath: any = constants.primaryDirectory.path;
+  const secondaryPath: any = constants.secondaryDirectory.path;
   await findDuplicates(primaryPath, secondaryPath)
-    .then(async duplicates => {
+    .then(async (duplicates: any) => {
       duplicateQueue = duplicates;
       if (duplicates.length === 0) {
         spinner.success({ text: green("\nNo duplicates found.\n") });
       } else {
-        // for (const duplicate of duplicates) {
-        //   totalDuplicateCount += duplicate.fileMatches.length - 1;
-        // }
-        // spinner.success({ text: `\nFound ${totalDuplicateCount} total duplicates for ${duplicates.length} files.\n` });
         spinner.success({ text: `${duplicateQueue.length} duplicates found.\n` });
       }
       await identifyUniqueFiles();
-      return chooseAllDupeAction();
+      const chosenDupeAction: any = await chooseAllDupeAction();
+      if (chosenDupeAction === "processDuplicates") {
+        await processDuplicates();
+      }
     })
     .catch(error => {
       spinner.error({ text: "An error occurred during the search" });
@@ -226,152 +208,7 @@ const findDupes = async () => {
     });
 };
 
-const chooseAllDupeAction = () => {
-  inquirer
-    .prompt([
-      {
-        type: "list",
-        name: "allDupeAction",
-        message: `${duplicateQueue.length} duplicate files found. What would you like to do?\n`,
-        choices: [
-          "01/15: Choose for each duplicate individually",
-          "02/15: Copy from primary to secondary directory (overwrites all in secondary, keeps all in primary)",
-          "03/15: Move from primary to secondary directory (overwrites all in secondary)",
-          "04/15: Copy from secondary to primary directory (overwrites all in primary, keeps all in secondary)",
-          "05/15: Move from secondary to primary directory (overwrites all in primary)",
-          "06/15: Delete all duplicates from primary directory",
-          "07/15: Delete all duplicates from secondary directory",
-          "08/15: Delete all duplicates from both directories",
-          "09/15: Delete older file for each duplicate",
-          "10/15: Delete newer file for each duplicate",
-          "11/15: Delete larger file for each duplicate",
-          "12/15: Delete smaller file for each duplicate",
-          "13/15: Create a JSON file with all duplicates",
-          "14/15: Create a .csv file with all duplicates",
-          "15/15: Cancel"
-        ],
-        default: "1/15: Choose for each duplicate individually"
-      }
-    ])
-    .then(answer => {
-      const action = answer["allDupeAction"];
-
-      if (action === "15/15: Cancel") {
-        console.log("Cancelled");
-        return;
-      } else if (answer === "13/15: Create a JSON file with all duplicates") {
-        return chooseNewFileLocation("json");
-      } else if (answer === "14/15: Create a .csv file with all duplicates") {
-        return chooseNewFileLocation("csv");
-      } else if (answer === "1/15: Choose for each duplicate individually") {
-        return processDuplicates();
-      }
-
-      switch (action) {
-        case "13/15: Create a JSON file with all duplicates":
-          return chooseNewFileLocation("json");
-        case "14/15: Create a .csv file with all duplicates":
-          return chooseNewFileLocation("csv");
-        case "15/15: Cancel":
-          console.log("Cancelled");
-          return;
-        case "1/15: Choose for each duplicate individually":
-          return processDuplicates();
-        default:
-          console.log(answer);
-          return;
-      }
-    }).catch(error => {
-      console.log(error);
-    });
-};
-
-const postDupeAction = () => {
-  inquirer
-    .prompt([
-      {
-        type: "list",
-        name: "postDupeAction",
-        message: "Would you like to merge the unique files when done from both directories into one directory?\n",
-        choices: [
-          "Yes",
-          "No"
-        ],
-        default: "Yes"
-      }
-    ])
-    .then(answer => {
-      const action = answer["postDupeAction"];
-
-      if (action === "Yes") {
-        return chooseNewDirectoryLocation("merge");
-      } else {
-        console.log("Cancelled");
-        return;
-      }
-    }).catch(error => {
-      console.log(error);
-    });
-};
-
-const chooseNewFileLocation = (type) => {
-  inquirer
-    .prompt([
-      {
-        type: "file-tree-selection",
-        name: "newFileLocation",
-        onlyShowDir: true,
-        enableGoUpperDirectory: true,
-        root: cwdPath,
-      }
-    ])
-    .then(answer => {
-      return chooseNewFileName(answer["newFileLocation"], type);
-    }).catch(error => {
-      console.log(error);
-    });
-};
-
-const chooseNewDirectoryLocation = (type) => {
-  inquirer
-    .prompt([
-      {
-        type: "file-tree-selection",
-        name: "newDirectoryLocation",
-        onlyShowDir: true,
-        enableGoUpperDirectory: true,
-        root: cwdPath,
-      }
-    ])
-    .then(answer => {
-      return chooseNewFileName(answer["newFileLocation"], type);
-    }).catch(error => {
-      console.log(error);
-    });
-};
-
-const chooseNewFileName = (targetPath, fileType) => {
-  const path1 = constants.primaryDirectory.path;
-  const path2 = constants.secondaryDirectory.path;
-  const divergentDirs = findDivergentDirectories([path1, path2]);
-  const defaultName = `duplicate-summary (1)-${divergentDirs[0]} to (2)-${divergentDirs[1]}`;
-  inquirer
-    .prompt([
-      {
-        type: "input",
-        name: "newFileName",
-        message: `What would you like to name the ${fileType} file?`,
-        default: defaultName
-      }
-    ])
-    .then(async answer => {
-      await createSummaryFile(targetPath, answer["newFileName"], fileType, duplicateQueue);
-    }).catch(error => {
-      console.log(error);
-    });
-};
-
-const constructTable = async (duplicateFiles) => {
+const constructTable = async (duplicateFiles: any[]) => {
   const file1 = duplicateFiles[0];
   const file2 = duplicateFiles[1];
   const table = new Table({
@@ -395,7 +232,7 @@ const constructTable = async (duplicateFiles) => {
   return table;
 };
 
-const setChoices = async (fileMatches) => {
+const setChoices = async (fileMatches: any[]) => {
   const firstMatch = fileMatches[0];
   const secondMatch = fileMatches[1];
   let choices = [
@@ -428,29 +265,7 @@ const setChoices = async (fileMatches) => {
   return choices;
 };
 
-const chooseFileAction = async (duplicates, table, choices) => {
-  try {
-    await inquirer.prompt([
-      {
-        type: "list",
-        name: "chooseFileAction",
-        message: `Duplicate ${currentSelectedNumber} of ${totalDuplicateFiles}. What would you like to do?\n\n` +
-          table.toString() + "\n",
-        choices: choices,
-        default: "Keep both"
-      }
-    ]).then(async answer => {
-      currentSelectedNumber++;
-      await performAction(answer["chooseFileAction"], duplicates[0], duplicates[1]);
-    }).catch(error => {
-      console.log(error);
-    });
-  } catch (error) {
-    console.log(error);
-  }
-};
-
-const performAction = async (answer, file1, file2) => {
+const performAction = async (answer: string, file1: { full: PathLike; }, file2: { full: PathLike; }) => {
   try {
     let actionResult = {
       file1: file1.full,
@@ -515,24 +330,23 @@ const performAction = async (answer, file1, file2) => {
       actionResult.success = true;
       return actionResult;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error performing action: ${error.message}`);
     return { success: false, action: answer, error: error.message };
   }
 };
 
-const processDuplicates = async () => {
+const processDuplicates = async (): Promise<void> => {
   try {
-    // console.log("duplicateQueue: ", JSON.stringify(duplicateQueue, null, 2));
-
     for (const duplicatePair of duplicateQueue) {
-      const convertedDuplicates = await convertDuplicates(duplicatePair.fileMatches);
-      const table = await constructTable(convertedDuplicates);
-      const choices = await setChoices(duplicatePair.fileMatches);
-      const dupeResult = await chooseFileAction(convertedDuplicates, table, choices);
-      console.log("dupeResult: ", JSON.stringify(dupeResult, null, 2));
-      const postFileAction = await postDupeAction(dupeResult);
-      console.log("postFileAction: ", JSON.stringify(postFileAction, null, 2));
+      const convertedDuplicates: FileInfo[] = await convertDuplicates(duplicatePair.fileMatches);
+      const table: any = await constructTable(convertedDuplicates);
+      const choices: string[] = await setChoices(duplicatePair.fileMatches);
+      const dupeResult: any = await chooseFileAction(convertedDuplicates, table, choices);
+      await performAction(dupeResult.decision, convertedDuplicates[0], convertedDuplicates[1]);
+      console.log('dupeResult: ', JSON.stringify(dupeResult, null, 2));
+      const postFileAction: any = await postDupeAction();
+      console.log('postFileAction: ', JSON.stringify(postFileAction, null, 2));
 
       summary.actions.push(dupeResult);
 
@@ -543,8 +357,8 @@ const processDuplicates = async () => {
       }
     }
 
-    console.log("Summary:\n", summary);
+    console.log('Summary:\n', summary);
   } catch (error) {
-    console.log(error);
+    console.error('Error processing duplicates:', error instanceof Error ? error.message : error);
   }
 };

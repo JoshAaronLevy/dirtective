@@ -1,5 +1,5 @@
 /* eslint-disable indent */
-export const getFileType = (extension) => {
+export const getFileType = (extension: string) => {
   switch (extension.toLowerCase()) {
     case ".docx":
       return "Microsoft Word Document";
