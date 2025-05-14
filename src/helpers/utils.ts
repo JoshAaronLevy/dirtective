@@ -1,5 +1,5 @@
 import path from "path";
-import { promises as fs, PathLike } from "fs";
+import { promises as fs } from "fs";
 import moment from "moment";
 import Papa from "papaparse";
 import { getFileType } from "./fileTypes";
@@ -248,7 +248,7 @@ export const createSummaryFile = async (targetPath: any, fileName: any, fileType
   return targetFile;
 };
 
-export const createPackageJsonFile = async (newFilePath: PathLike | fs.FileHandle, duplicateQueue: any) => {
+export const createPackageJsonFile = async (newFilePath: any | fs.FileHandle, duplicateQueue: any) => {
   try {
     const jsonData: any = await generateJsonFileData(duplicateQueue);
     await fs.writeFile(newFilePath, jsonData, "utf8");
@@ -276,7 +276,7 @@ export const generateJsonFileData = async (duplicateQueue: any[]) => {
   }
 };
 
-export const writeToCSV = async (fileName: PathLike | fs.FileHandle, duplicateQueue: any[]) => {
+export const writeToCSV = async (fileName: any | fs.FileHandle, duplicateQueue: any[]) => {
   try {
     const fileData = duplicateQueue.map(async (duplicate: { fileMatches: string | any[]; }, index: number) => {
       let file1 = await duplicate.fileMatches[0];

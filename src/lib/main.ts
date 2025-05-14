@@ -1,13 +1,12 @@
 #!/usr/bin/env node
-/* eslint-disable indent */
-import path from "path";
-import { promises as fs, PathLike } from "fs";
+/* eslint-disable */
+import * as path from "path";
+import { promises as fs } from "fs";
 const directory = process.cwd();
 import shell from "shelljs";
 import { createSpinner } from "nanospinner";
 import { red, white, yellow, green, bold } from "colorette";
 import Table from "cli-table3";
-// import moment from "moment";
 import inquirer from "inquirer";
 import inquirerFileTreeSelection from "inquirer-file-tree-selection-prompt";
 import { constants } from "../helpers/constants";
@@ -77,7 +76,7 @@ const getCwdPath = async () => {
 };
 
 const setDirectory = async (
-  targetDirectory: 'primaryDirectory' | 'secondaryDirectory',
+  targetDirectory: "primaryDirectory" | "secondaryDirectory",
   answer: string
 ): Promise<void> => {
   try {
@@ -90,24 +89,24 @@ const setDirectory = async (
     const friendlySize: any = bytesToSize(targetDir.size.bytes);
     targetDir.size.calculated = `${friendlySize.size} ${friendlySize.unit}`;
 
-    if (targetDirectory === 'primaryDirectory') {
-      return selectDirectory('secondaryDirectory');
-    } else if (targetDirectory === 'secondaryDirectory') {
+    if (targetDirectory === "primaryDirectory") {
+      return selectDirectory("secondaryDirectory");
+    } else if (targetDirectory === "secondaryDirectory") {
       if (constants.primaryDirectory.path === constants.secondaryDirectory.path) {
         console.log(red(`You cannot compare the same directory. Please select a different directory than ${answer}.\n`));
-        return selectDirectory('secondaryDirectory');
+        return selectDirectory("secondaryDirectory");
       }
       return findDupes();
     } else {
       return constants[targetDirectory];
     }
   } catch (error) {
-    console.error('Error setting directory:', error instanceof Error ? error.message : error);
+    console.error("Error setting directory:", error instanceof Error ? error.message : error);
     throw error;
   }
 };
 
-const getFileList = async (selectedDir: { path: PathLike; size: { bytes: number; }; files: string | any[]; }) => {
+const getFileList = async (selectedDir: { path: any; size: { bytes: number; }; files: string | any[]; }) => {
   const spinner = createSpinner("Reticulating splines...").start();
   try {
     const asyncFileList = await fs.readdir(selectedDir.path);
@@ -265,7 +264,7 @@ const setChoices = async (fileMatches: any[]) => {
   return choices;
 };
 
-const performAction = async (answer: string, file1: { full: PathLike; }, file2: { full: PathLike; }) => {
+const performAction = async (answer: string, file1: { full: any; }, file2: { full: any; }) => {
   try {
     let actionResult = {
       file1: file1.full,
@@ -344,9 +343,9 @@ const processDuplicates = async (): Promise<void> => {
       const choices: string[] = await setChoices(duplicatePair.fileMatches);
       const dupeResult: any = await chooseFileAction(convertedDuplicates, table, choices);
       await performAction(dupeResult.decision, convertedDuplicates[0], convertedDuplicates[1]);
-      console.log('dupeResult: ', JSON.stringify(dupeResult, null, 2));
+      console.log("dupeResult: ", JSON.stringify(dupeResult, null, 2));
       const postFileAction: any = await postDupeAction();
-      console.log('postFileAction: ', JSON.stringify(postFileAction, null, 2));
+      console.log("postFileAction: ", JSON.stringify(postFileAction, null, 2));
 
       summary.actions.push(dupeResult);
 
@@ -357,8 +356,8 @@ const processDuplicates = async (): Promise<void> => {
       }
     }
 
-    console.log('Summary:\n', summary);
+    console.log("Summary:\n", summary);
   } catch (error) {
-    console.error('Error processing duplicates:', error instanceof Error ? error.message : error);
+    console.error("Error processing duplicates:", error instanceof Error ? error.message : error);
   }
 };

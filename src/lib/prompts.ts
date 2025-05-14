@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable indent */
+/* eslint-disable */
 import inquirer from "inquirer";
 import inquirerFileTreeSelection from "inquirer-file-tree-selection-prompt";
 import { constants } from "../helpers/constants";
@@ -12,27 +12,6 @@ let cwdPath: any;
 let duplicateQueue: string | any[] = [];
 let currentSelectedNumber = 1;
 let totalDuplicateFiles = 0;
-
-export const prompts = async (opts: { branch?: boolean; b?: boolean; version?: boolean }) => {
-  // Check if the user has provided a branch flag
-  if (opts.branch || opts.b) {
-    console.log('Branch flag is set.');
-    // Add your logic for handling the branch flag here
-  } else {
-    console.log('No branch flag provided.');
-    // Add your logic for handling the absence of the branch flag here
-  }
-
-  // Check if the user has provided a version flag
-  if (opts.version) {
-    console.log('Version flag is set.');
-    // Add your logic for handling the version flag here
-  } else {
-    console.log('No version flag provided.');
-    // Add your logic for handling the absence of the version flag here
-  }
-  return;
-};
 
 export const selectDirectory = async (targetDirectory: string) => {
   try {

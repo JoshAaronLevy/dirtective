@@ -1,5 +1,7 @@
-import { Command } from 'commander';
-import main from '../lib/main';
+#!/usr/bin/env node
+/* eslint-disable */
+import { Command } from "commander";
+import main from "../lib/main";
 
 interface CommandOptions {
   branch?: boolean;
@@ -10,11 +12,11 @@ interface CommandOptions {
 const program = new Command();
 
 program
-  .description('Example: dirtective "./"')
-  .version('2.0.0', '-v, --version')
+  .description("Example: dirtective")
+  .version("2.0.0", "-v, --version")
   .action(async (message: string | CommandOptions, command?: CommandOptions) => {
     try {
-      const opts: CommandOptions = (typeof message === 'string' ? command : message) || {};
+      const opts: CommandOptions = (typeof message === "string" ? command : message) || {};
       const effectiveCommand: CommandOptions = opts;
 
       if (opts.branch === true || opts.b === true || !command) {
@@ -23,7 +25,7 @@ program
         await main(command);
       }
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : error);
+      console.error("Error:", error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
