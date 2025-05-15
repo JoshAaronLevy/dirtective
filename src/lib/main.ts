@@ -12,204 +12,174 @@ import inquirerFileTreeSelection from "inquirer-file-tree-selection-prompt";
 import { constants } from "../helpers/constants";
 import { bytesToSize, convertDuplicates, findDuplicates } from "../helpers/utils";
 import { chooseAllDupeAction, chooseFileAction, postDupeAction, selectDirectory } from "./prompts";
-import type { Duplicate, FileInfo, Summary } from "../helpers/models";
+import type { FileInfo, ActionResult, State, DirectoryWithNullables, ConstantsType } from "../helpers/models";
 
 inquirer.registerPrompt("file-tree-selection", inquirerFileTreeSelection);
 
-let rootPath: string;
-let uniqueQueue = [];
-
-let duplicateQueue: Duplicate[] = [];
-const summary: Summary = {
-  total: duplicateQueue.length,
-  success: 0,
-  failed: 0,
-  actions: [],
-};
-
-export const main = async (command: any): Promise<void> => {
-  if (command && command.args.length > 0) {
-    console.log("command args:\n", command.args);
-  }
-  try {
-    rootPath = await getRootPath();
-    await getCwdPath();
-    if (rootPath) {
-      const selectedDir: any = await selectDirectory("primaryDirectory");
-      if (selectedDir) {
-        await setDirectory("primaryDirectory", selectedDir);
-      }
-    }
-  } catch (error) {
-    console.log(error);
+const state: State = {
+  rootPath: "",
+  uniqueQueue: [],
+  duplicateQueue: [],
+  summary: {
+    total: 0,
+    success: 0,
+    failed: 0,
+    actions: [],
   }
 };
 
-const getRootPath = async () => {
+// Path utilities
+const getPathSegments = (dir: string): string[] => dir.split(path.sep);
+
+const getRootPath = async (): Promise<string> => {
   try {
-    const arrPath = directory.split(path.sep);
-    if (arrPath.length >= 2) {
-      return arrPath.slice(0, arrPath.length - 1).join(path.sep);
-    } else {
-      return directory;
-    }
+    const segments = getPathSegments(directory);
+    return segments.length >= 2 
+      ? segments.slice(0, segments.length - 1).join(path.sep)
+      : directory;
   } catch (error) {
-    console.log(error);
+    console.error("Error getting root path:", error instanceof Error ? error.message : error);
     return "";
   }
 };
 
-const getCwdPath = async () => {
+const getCwdPath = async (): Promise<string> => {
   try {
-    const arrPath = directory.split(path.sep);
-    if (arrPath.length > 2) {
-      return arrPath.slice(0, arrPath.length - 2).join(path.sep);
-    } else if (arrPath.length === 2) {
-      return arrPath.slice(0, arrPath.length - 1).join(path.sep);
-    } else {
-      return directory;
+    const segments = getPathSegments(directory);
+    if (segments.length > 2) {
+      return segments.slice(0, segments.length - 2).join(path.sep);
     }
+    return segments.length === 2 
+      ? segments.slice(0, segments.length - 1).join(path.sep)
+      : directory;
   } catch (error) {
-    console.log(error);
+    console.error("Error getting CWD path:", error instanceof Error ? error.message : error);
     return "";
   }
 };
 
+// File processing utilities
+const isValidFile = (file: string): boolean => 
+  !file.includes("$") && !file.includes(".ini") && file[0] !== ".";
+
+const processFileStats = async (
+  file: string, 
+  selectedDir: { path: string; size: { bytes: number } }
+): Promise<FileInfo> => {
+  const filePath = path.join(selectedDir.path, file);
+  const fileStats = await fs.stat(filePath);
+  
+  selectedDir.size.bytes += fileStats.size;
+
+  return {
+    full: filePath,
+    name: path.parse(file).name,
+    base: path.basename(file),
+    path: selectedDir.path,
+    extension: path.extname(file) || null,
+    date: {
+      raw: fileStats.birthtime
+    },
+    size: {
+      bytes: fileStats.size
+    }
+  };
+};
+
+const getFileList = async (selectedDir: DirectoryWithNullables): Promise<FileInfo[] | undefined> => {
+  const spinner = createSpinner("Reticulating splines...").start();
+  
+  try {
+    if (!selectedDir.path) {
+      throw new Error("Directory path is not defined");
+    }
+
+    const files = await fs.readdir(selectedDir.path);
+    const validFiles = files.filter(isValidFile);
+
+    if (!validFiles.length) {
+      spinner.warn({
+        text: yellow(bold("ALERT! ")) + 
+          white(`No files found in ${selectedDir.path}. Please select a different directory.\n`)
+      });
+      return [];
+    }
+
+    const fileData = await Promise.all(
+      validFiles.map(file => processFileStats(file, { path: selectedDir.path!, size: selectedDir.size }))
+    );
+
+    spinner.success({ text: white(`Found ${fileData.length} files.\n`) });
+    return fileData;
+  } catch (error) {
+    console.error("Error getting file list:", error instanceof Error ? error.message : error);
+    spinner.error({ text: "Failed to get file list" });
+    return undefined;
+  }
+};
+
+// Directory management
 const setDirectory = async (
   targetDirectory: "primaryDirectory" | "secondaryDirectory",
   answer: string
-): Promise<void> => {
+): Promise<unknown> => {
   try {
-    const targetDir: any = constants[targetDirectory];
+    const targetDir = (constants as ConstantsType)[targetDirectory];
     targetDir.path = answer;
     targetDir.name = path.basename(answer);
-    targetDir.files = await getFileList(targetDir);
-    targetDir.fileCount = targetDir.files.length;
+    
+    const files = await getFileList(targetDir);
+    if (files) {
+      targetDir.files = files;
+      targetDir.fileCount = files.length;
+    }
 
-    const friendlySize: any = bytesToSize(targetDir.size.bytes);
-    targetDir.size.calculated = `${friendlySize.size} ${friendlySize.unit}`;
+    const friendlySize = bytesToSize(targetDir.size.bytes);
+    if (typeof friendlySize !== 'string') {
+      targetDir.size.calculated = `${friendlySize.size} ${friendlySize.unit}`;
+    }
 
     if (targetDirectory === "primaryDirectory") {
       return selectDirectory("secondaryDirectory");
-    } else if (targetDirectory === "secondaryDirectory") {
-      if (constants.primaryDirectory.path === constants.secondaryDirectory.path) {
+    }
+
+    if (targetDirectory === "secondaryDirectory") {
+      const primaryDir = (constants as ConstantsType).primaryDirectory;
+      if (primaryDir.path === targetDir.path) {
         console.log(red(`You cannot compare the same directory. Please select a different directory than ${answer}.\n`));
         return selectDirectory("secondaryDirectory");
       }
       return findDupes();
-    } else {
-      return constants[targetDirectory];
     }
+
+    return targetDir;
   } catch (error) {
     console.error("Error setting directory:", error instanceof Error ? error.message : error);
     throw error;
   }
 };
 
-const getFileList = async (selectedDir: { path: any; size: { bytes: number; }; files: string | any[]; }) => {
-  const spinner = createSpinner("Reticulating splines...").start();
-  try {
-    const asyncFileList = await fs.readdir(selectedDir.path);
-    const fileList = asyncFileList?.filter(file => !file.includes("$") && !file.includes(".ini") && file[0] !== ".");
-    if ((!asyncFileList || asyncFileList.length === 0) || (!fileList || fileList.length === 0)) {
-      return spinner.warn({
-        text: yellow(bold("ALERT! ")) +
-          white(`No files found in ${selectedDir.path}. Please select a different directory.\n`)
-      });
-    } else {
-      const fileDataPromises = fileList.map(async (file) => {
-        const filePath = `${selectedDir.path}${path.sep}${file}`;
+// File comparison utilities
+const fileExists = (array: FileInfo[], name: string): boolean =>
+  array.some(file => file.name === name);
 
-        const fileStats = await fs.stat(filePath);
-        const fileSize = fileStats.size;
-        const rawCreatedDate = fileStats.birthtime;
-        selectedDir.size.bytes += fileSize;
+const identifyUniqueFiles = async (): Promise<FileInfo[]> => {
+  const typedConstants = constants as ConstantsType;
+  const primaryFiles = typedConstants.primaryDirectory.files;
+  const secondaryFiles = typedConstants.secondaryDirectory.files;
+  
+  const uniqueFiles = [
+    ...primaryFiles.filter(file => !fileExists(secondaryFiles, file.name) && file.base.includes(".")),
+    ...secondaryFiles.filter(file => !fileExists(primaryFiles, file.name) && file.base.includes("."))
+  ];
 
-        return {
-          full: filePath,
-          name: path.parse(file).name,
-          base: path.basename(file),
-          path: selectedDir.path,
-          extension: path.extname(file) || null,
-          date: {
-            raw: rawCreatedDate
-          },
-          size: {
-            bytes: fileSize
-          }
-        };
-      });
-
-      const fileData = await Promise.all(fileDataPromises);
-      selectedDir.files = fileData;
-      spinner.success({
-        text: white(`Found ${selectedDir.files.length} files.\n`)
-      });
-      return fileData;
-    }
-  } catch (error) {
-    console.log(error);
-  }
+  state.uniqueQueue = uniqueFiles;
+  return uniqueFiles;
 };
 
-const identifyUniqueFiles = async () => {
-  const primaryDirFiles: any = constants.primaryDirectory.files;
-  const secondaryDirFiles = constants.secondaryDirectory.files;
-
-  let uniqueFiles: any = [];
-
-  function fileExists(array: any[], name: any) {
-    return array.some((file: any) => file.name === name);
-  }
-
-  primaryDirFiles.forEach((file: any) => {
-    if (!fileExists(secondaryDirFiles, file.name)) {
-      if (file.base.includes(".")) {
-        uniqueFiles.push(file);
-      }
-    }
-  });
-
-  secondaryDirFiles.forEach((file: any) => {
-    if (!fileExists(primaryDirFiles, file.name)) {
-      if (file.base.includes(".")) {
-        uniqueFiles.push(file);
-      }
-    }
-  });
-
-  uniqueQueue = uniqueFiles;
-
-  return uniqueQueue;
-};
-
-const findDupes = async () => {
-  const spinner = createSpinner("Looking for duplicates...\n").start();
-  const primaryPath: any = constants.primaryDirectory.path;
-  const secondaryPath: any = constants.secondaryDirectory.path;
-  await findDuplicates(primaryPath, secondaryPath)
-    .then(async (duplicates: any) => {
-      duplicateQueue = duplicates;
-      if (duplicates.length === 0) {
-        spinner.success({ text: green("\nNo duplicates found.\n") });
-      } else {
-        spinner.success({ text: `${duplicateQueue.length} duplicates found.\n` });
-      }
-      await identifyUniqueFiles();
-      const chosenDupeAction: any = await chooseAllDupeAction();
-      if (chosenDupeAction === "processDuplicates") {
-        await processDuplicates();
-      }
-    })
-    .catch(error => {
-      spinner.error({ text: "An error occurred during the search" });
-      console.error(error);
-    });
-};
-
-const constructTable = async (duplicateFiles: any[]) => {
-  const file1 = duplicateFiles[0];
-  const file2 = duplicateFiles[1];
+// Table construction
+const constructTable = async (duplicateFiles: FileInfo[]): Promise<Table.Table> => {
+  const [file1, file2] = duplicateFiles;
   const table = new Table({
     head: ["", `(1) ${file1.path}`, `(2) ${file2.path}`],
     chars: {
@@ -231,133 +201,163 @@ const constructTable = async (duplicateFiles: any[]) => {
   return table;
 };
 
-const setChoices = async (fileMatches: any[]) => {
-  const firstMatch = fileMatches[0];
-  const secondMatch = fileMatches[1];
-  let choices = [
+// Choice management
+const setChoices = async (fileMatches: FileInfo[]): Promise<string[]> => {
+  const [firstMatch, secondMatch] = fileMatches;
+  const choices = [
     "Keep both",
     "Delete both",
     "Delete from (1)",
     "Delete from (2)"
   ];
 
-  if (firstMatch.size !== secondMatch.size) {
-    if (firstMatch.size > secondMatch.size) {
-      choices.push("Delete larger file (1)");
-      choices.push("Delete smaller file (2)");
-    } else {
-      choices.push("Delete larger file (2)");
-      choices.push("Delete smaller file (1)");
-    }
+  if (firstMatch.size.bytes !== secondMatch.size.bytes) {
+    const [larger, smaller] = firstMatch.size.bytes > secondMatch.size.bytes 
+      ? ["(1)", "(2)"] 
+      : ["(2)", "(1)"];
+    choices.push(`Delete larger file ${larger}`, `Delete smaller file ${smaller}`);
   }
 
   if (firstMatch.date.raw !== secondMatch.date.raw) {
-    if (firstMatch.date.raw > secondMatch.date.raw) {
-      choices.push("Delete newer file (1)");
-      choices.push("Delete older file (2)");
-    } else {
-      choices.push("Delete newer file (2)");
-      choices.push("Delete older file (1)");
-    }
+    const [newer, older] = firstMatch.date.raw > secondMatch.date.raw 
+      ? ["(1)", "(2)"] 
+      : ["(2)", "(1)"];
+    choices.push(`Delete newer file ${newer}`, `Delete older file ${older}`);
   }
 
   return choices;
 };
 
-const performAction = async (answer: string, file1: { full: any; }, file2: { full: any; }) => {
+// File operations
+const deleteFile = async (filePath: string): Promise<boolean> => {
   try {
-    let actionResult = {
-      file1: file1.full,
-      file2: file2.full,
-      decision: answer,
-      success: false
-    };
+    await fs.unlink(filePath);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting file ${filePath}:`, error instanceof Error ? error.message : error);
+    return false;
+  }
+};
 
-    if (answer === "Keep both") {
-      return actionResult;
-    } else if (answer === "Delete both") {
-      await fs.unlink(file1.full);
-      await fs.unlink(file2.full);
-      actionResult.success = true;
-      return actionResult;
-    } else if (answer === "Delete from (1)") {
-      if (shell.rm("-rf", `${file1.full}`).code !== 0) {
-        actionResult.success = false;
-        shell.echo("Error: failed to delete file");
-        shell.exit(1);
-      } else {
+const performAction = async (
+  answer: string, 
+  file1: FileInfo, 
+  file2: FileInfo
+): Promise<ActionResult> => {
+  const actionResult: ActionResult = {
+    file1: file1.full,
+    file2: file2.full,
+    decision: answer,
+    success: false
+  };
+
+  try {
+    switch (answer) {
+      case "Keep both":
+        return actionResult;
+      
+      case "Delete both":
+        actionResult.success = await deleteFile(file1.full) && await deleteFile(file2.full);
+        break;
+      
+      case "Delete from (1)":
+        if (shell.rm("-rf", file1.full).code !== 0) {
+          shell.echo("Error: failed to delete file");
+          shell.exit(1);
+        }
         actionResult.success = true;
-      }
-      return actionResult;
-    } else if (answer === "Delete from (2)") {
-      await fs.unlink(file2.full);
-      actionResult.success = true;
-      return actionResult;
-    } else if (answer === "Delete larger file (1)") {
-      await fs.unlink(file1.full);
-      actionResult.success = true;
-      return actionResult;
-    } else if (answer === "Delete larger file (2)") {
-      await fs.unlink(file2.full);
-      actionResult.success = true;
-      return actionResult;
-    } else if (answer === "Delete smaller file (1)") {
-      await fs.unlink(file1.full);
-      actionResult.success = true;
-      return actionResult;
-    } else if (answer === "Delete smaller file (2)") {
-      await fs.unlink(file2.full);
-      actionResult.success = true;
-      return actionResult;
-    } else if (answer === "Delete newer file (1)") {
-      await fs.unlink(file1.full);
-      actionResult.success = true;
-      return actionResult;
-    } else if (answer === "Delete newer file (2)") {
-      await fs.unlink(file2.full);
-      actionResult.success = true;
-      return actionResult;
-    } else if (answer === "Delete older file (1)") {
-      await fs.unlink(file1.full);
-      actionResult.success = true;
-      return actionResult;
-    } else if (answer === "Delete older file (2)") {
-      await fs.unlink(file2.full);
-      actionResult.success = true;
-      return actionResult;
-    } else {
-      actionResult.success = true;
-      return actionResult;
+        break;
+      
+      default:
+        if (answer.includes("Delete")) {
+          const targetFile = answer.includes("(1)") ? file1 : file2;
+          actionResult.success = await deleteFile(targetFile.full);
+        }
     }
-  } catch (error: any) {
-    console.error(`Error performing action: ${error.message}`);
-    return { success: false, action: answer, error: error.message };
+
+    return actionResult;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { ...actionResult, success: false, error: errorMessage };
+  }
+};
+
+// Main processing functions
+const findDupes = async (): Promise<void> => {
+  const spinner = createSpinner("Looking for duplicates...\n").start();
+  
+  try {
+    const typedConstants = constants as ConstantsType;
+    const primaryPath = typedConstants.primaryDirectory.path;
+    const secondaryPath = typedConstants.secondaryDirectory.path;
+    
+    if (!primaryPath || !secondaryPath) {
+      throw new Error("Directory paths not properly set");
+    }
+
+    const duplicates = await findDuplicates(primaryPath, secondaryPath);
+    state.duplicateQueue = duplicates;
+    
+    spinner.success({ 
+      text: duplicates.length === 0 
+        ? green("\nNo duplicates found.\n")
+        : `${duplicates.length} duplicates found.\n`
+    });
+
+    await identifyUniqueFiles();
+    const chosenDupeAction = await chooseAllDupeAction();
+    
+    if (chosenDupeAction === "processDuplicates") {
+      await processDuplicates();
+    }
+  } catch (error) {
+    spinner.error({ text: "An error occurred during the search" });
+    console.error("Error finding duplicates:", error instanceof Error ? error.message : error);
   }
 };
 
 const processDuplicates = async (): Promise<void> => {
   try {
-    for (const duplicatePair of duplicateQueue) {
-      const convertedDuplicates: FileInfo[] = await convertDuplicates(duplicatePair.fileMatches);
-      const table: any = await constructTable(convertedDuplicates);
-      const choices: string[] = await setChoices(duplicatePair.fileMatches);
-      const dupeResult: any = await chooseFileAction(convertedDuplicates, table, choices);
-      await performAction(dupeResult.decision, convertedDuplicates[0], convertedDuplicates[1]);
-      console.log("dupeResult: ", JSON.stringify(dupeResult, null, 2));
-      const postFileAction: any = await postDupeAction();
-      console.log("postFileAction: ", JSON.stringify(postFileAction, null, 2));
+    for (const duplicatePair of state.duplicateQueue) {
+      const convertedDuplicates = await convertDuplicates(duplicatePair.fileMatches);
+      const table = await constructTable(convertedDuplicates);
+      const choices = await setChoices(duplicatePair.fileMatches);
+      
+      const dupeResult = await chooseFileAction(convertedDuplicates, table, choices);
+      const actionResult = await performAction(dupeResult.decision, convertedDuplicates[0], convertedDuplicates[1]);
+      
+      console.log("dupeResult:", JSON.stringify(actionResult, null, 2));
+      
+      const postFileAction = await postDupeAction();
+      console.log("postFileAction:", JSON.stringify(postFileAction, null, 2));
 
-      summary.actions.push(dupeResult);
-
-      if (dupeResult.success) {
-        summary.success++;
-      } else {
-        summary.failed++;
-      }
+      state.summary.actions.push(actionResult);
+      actionResult.success ? state.summary.success++ : state.summary.failed++;
     }
 
-    console.log("Summary:\n", summary);
+    console.log("Summary:\n", state.summary);
   } catch (error) {
     console.error("Error processing duplicates:", error instanceof Error ? error.message : error);
+  }
+};
+
+// Main entry point
+export const main = async (command: any): Promise<void> => {
+  if (command?.args.length > 0) {
+    console.log("command args:\n", command.args);
+  }
+
+  try {
+    state.rootPath = await getRootPath();
+    await getCwdPath();
+    
+    if (state.rootPath) {
+      const selectedDir = await selectDirectory("primaryDirectory");
+      if (selectedDir) {
+        await setDirectory("primaryDirectory", selectedDir);
+      }
+    }
+  } catch (error) {
+    console.error("Error in main:", error instanceof Error ? error.message : error);
   }
 };

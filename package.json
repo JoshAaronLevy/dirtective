@@ -5,9 +5,9 @@
   "main": "./dist/index.js",
   "scripts": {
     "start": "node ./dist/index.js",
-    "build": "npx tsup src/bin/index.ts --format esm",
+    "build": "npx tsup src/bin/index.ts --format esm --minify",
     "relink": "npm uninstall -g dirtective && npm i && rm -rf dist && npm run build && npm link",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "preferGlobal": true,
   "bin": {
@@ -34,10 +34,13 @@
     "@babel/preset-env": "^7.27.2",
     "@babel/preset-typescript": "^7.27.1",
     "@types/inquirer": "^9.0.8",
+    "@types/jest": "^29.5.14",
     "@types/node": "^22.15.18",
     "@types/papaparse": "^5.3.16",
     "@types/shelljs": "^0.8.16",
     "eslint": "^8.38.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.3",
     "tsup": "^8.4.0"
   }
 }
