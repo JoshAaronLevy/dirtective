@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable */
 import { Command } from "commander";
-import main from "../lib/main";
+import { main } from "../lib/main";
 
 interface CommandOptions {
   branch?: boolean;

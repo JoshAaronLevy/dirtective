@@ -12,14 +12,14 @@ import inquirerFileTreeSelection from "inquirer-file-tree-selection-prompt";
 import { constants } from "../helpers/constants";
 import { bytesToSize, convertDuplicates, findDuplicates } from "../helpers/utils";
 import { chooseAllDupeAction, chooseFileAction, postDupeAction, selectDirectory } from "./prompts";
-import { Duplicate, FileInfo, Summary } from "../helpers/models";
+import type { Duplicate, FileInfo, Summary } from "../helpers/models";
 
 inquirer.registerPrompt("file-tree-selection", inquirerFileTreeSelection);
 
 let rootPath: string;
 let uniqueQueue = [];
 
-let duplicateQueue: Duplicate[] = []; // Initialize or populate elsewhere
+let duplicateQueue: Duplicate[] = [];
 const summary: Summary = {
   total: duplicateQueue.length,
   success: 0,
@@ -27,7 +27,7 @@ const summary: Summary = {
   actions: [],
 };
 
-export default async (command: any): Promise<void> => {
+export const main = async (command: any): Promise<void> => {
   if (command && command.args.length > 0) {
     console.log("command args:\n", command.args);
   }

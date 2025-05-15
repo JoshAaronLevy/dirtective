@@ -2,17 +2,18 @@
   "name": "dirtective",
   "version": "2.0.0",
   "description": "Compare two directories and find out what's different",
-  "main": "./dist/bin/index.js",
+  "main": "./dist/index.js",
   "scripts": {
-    "start": "node ./dist/bin/index.js",
-    "build": "npx tsc",
-    "relink": "npm uninstall -g dirtective && npm i && rm -rf dist && npx tsc && npm link",
+    "start": "node ./dist/index.js",
+    "build": "npx tsup src/bin/index.ts --format esm",
+    "relink": "npm uninstall -g dirtective && npm i && rm -rf dist && npm run build && npm link",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "preferGlobal": true,
   "bin": {
-    "dirtective": "./dist/bin/index.js"
+    "dirtective": "./dist/index.js"
   },
+  "type": "module",
   "keywords": [],
   "author": "Josh Levy",
   "license": "ISC",
@@ -36,6 +37,7 @@
     "@types/node": "^22.15.18",
     "@types/papaparse": "^5.3.16",
     "@types/shelljs": "^0.8.16",
-    "eslint": "^8.38.0"
+    "eslint": "^8.38.0",
+    "tsup": "^8.4.0"
   }
 }
