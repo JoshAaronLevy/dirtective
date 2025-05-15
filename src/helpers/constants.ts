@@ -98,5 +98,6 @@ export const constants = {
     ".bzr",
     ".bzrignore",
     ".bzrtags"
-  ]
+  ],
+  targetDirectory: {}
 };
